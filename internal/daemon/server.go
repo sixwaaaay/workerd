@@ -250,7 +250,7 @@ func (s *Server) handleReload(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.manager.Reload(); err != nil {
 		writeJSON(w, http.StatusOK, map[string]interface{}{
-			"status": "reloaded",
+			"status":  "reloaded",
 			"warning": err.Error(),
 		})
 		return

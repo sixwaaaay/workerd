@@ -15,11 +15,11 @@ import (
 
 // Collector collects output from a process and writes it to a log file with rotation.
 type Collector struct {
-	mu       sync.RWMutex
-	path     string
-	writer   *lumberjack.Logger
-	buf      *bufio.Writer
-	closed   bool
+	mu          sync.RWMutex
+	path        string
+	writer      *lumberjack.Logger
+	buf         *bufio.Writer
+	closed      bool
 	subscribers []chan LogLine
 }
 
@@ -51,7 +51,7 @@ func NewCollector(path string, maxSize string, maxFiles int) (*Collector, error)
 		Filename:   path,
 		MaxSize:    int(maxBytes / (1024 * 1024)),
 		MaxBackups: maxFiles,
-		MaxAge:     0,    // don't use age-based cleanup
+		MaxAge:     0, // don't use age-based cleanup
 		Compress:   false,
 		LocalTime:  true,
 	}

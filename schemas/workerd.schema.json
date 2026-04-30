@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/user/workerd/internal/config/service-config",
+  "$id": "https://github.com/sixwaaaay/workerd/internal/config/service-config",
   "properties": {
     "name": {
       "type": "string",
@@ -89,17 +89,7 @@
         }
       },
       "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "policy",
-        "exit_codes",
-        "max_retries",
-        "restart_window",
-        "backoff",
-        "backoff_initial",
-        "backoff_max",
-        "backoff_factor"
-      ]
+      "type": "object"
     },
     "health_check": {
       "properties": {
@@ -153,11 +143,7 @@
       "additionalProperties": false,
       "type": "object",
       "required": [
-        "type",
-        "interval",
-        "timeout",
-        "retries",
-        "on_unhealthy"
+        "type"
       ]
     },
     "stop": {
@@ -177,11 +163,7 @@
         }
       },
       "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "signal",
-        "timeout"
-      ]
+      "type": "object"
     },
     "log": {
       "properties": {
@@ -203,29 +185,14 @@
         }
       },
       "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "stdout_path",
-        "stderr_path",
-        "max_size",
-        "max_files"
-      ]
+      "type": "object"
     }
   },
   "additionalProperties": false,
   "type": "object",
   "required": [
     "name",
-    "command",
-    "description",
-    "args",
-    "working_dir",
-    "enabled",
-    "environment",
-    "env_file",
-    "restart",
-    "stop",
-    "log"
+    "command"
   ],
   "title": "workerd Service Configuration",
   "description": "Schema for workerd service TOML configuration files."

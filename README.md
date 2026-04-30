@@ -55,7 +55,7 @@ vim ~/.config/workerd/services/myapp.toml
 Example config (`myapp.toml`):
 
 ```toml
-#:schema https://raw.githubusercontent.com/sixwaaaay/workerd/main/schemas/workerd.schema.json
+#:schema https://raw.githubusercontent.com/sixwaaaay/workerd/refs/heads/main/schemas/workerd.schema.json
 
 name = "myapp"
 command = "/usr/bin/python3"
@@ -219,7 +219,7 @@ each service config to enable autocompletion in VS Code (requires
 [Even Better TOML](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml)):
 
 ```toml
-#:schema https://raw.githubusercontent.com/sixwaaaay/workerd/main/schemas/workerd.schema.json
+#:schema https://raw.githubusercontent.com/sixwaaaay/workerd/refs/heads/main/schemas/workerd.schema.json
 ```
 
 Generate the schema:

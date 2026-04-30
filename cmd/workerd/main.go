@@ -9,12 +9,12 @@ import (
 	"syscall"
 	"text/tabwriter"
 
-	"github.com/spf13/cobra"
 	"github.com/sixwaaaay/workerd/internal/client"
 	"github.com/sixwaaaay/workerd/internal/config"
 	"github.com/sixwaaaay/workerd/internal/daemon"
 	"github.com/sixwaaaay/workerd/internal/logger"
 	"github.com/sixwaaaay/workerd/internal/process"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -415,7 +415,7 @@ func versionCmd() *cobra.Command {
 // generateTOMLTemplate creates a TOML template string from a config.
 func generateTOMLTemplate(cfg *config.ServiceConfig) string {
 	var sb strings.Builder
-	sb.WriteString("#:schema https://raw.githubusercontent.com/sixwaaaay/workerd/main/schemas/workerd.schema.json\n")
+	sb.WriteString("#:schema https://raw.githubusercontent.com/sixwaaaay/workerd/refs/heads/main/schemas/workerd.schema.json\n")
 	sb.WriteString(fmt.Sprintf("# Service: %s\n", cfg.Name))
 	sb.WriteString("# Edit this file to configure your service.\n\n")
 	sb.WriteString(fmt.Sprintf("name = %q\n", cfg.Name))

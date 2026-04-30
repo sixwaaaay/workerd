@@ -33,30 +33,30 @@ func (d Duration) Duration() time.Duration {
 
 // ServiceConfig represents a single service configuration.
 type ServiceConfig struct {
-	Name        string            `toml:"name" json:"name" jsonschema:"required,description=Unique service name"`
-	Command     string            `toml:"command" json:"command" jsonschema:"required,description=Executable path (absolute recommended)"`
-	Description string            `toml:"description" json:"description" jsonschema:"description=Human-readable description"`
-	Args        []string          `toml:"args" json:"args" jsonschema:"description=Command-line arguments"`
-	WorkingDir  string            `toml:"working_dir" json:"working_dir" jsonschema:"description=Working directory for the process"`
-	Enabled     bool              `toml:"enabled" json:"enabled" jsonschema:"description=Whether to auto-start on daemon launch"`
-	Environment map[string]string `toml:"environment" json:"environment" jsonschema:"description=Environment variables"`
-	EnvFile     string            `toml:"env_file" json:"env_file" jsonschema:"description=Path to .env file to load"`
-	Restart     RestartConfig     `toml:"restart" json:"restart"`
+	Name        string             `toml:"name" json:"name" jsonschema:"required,description=Unique service name"`
+	Command     string             `toml:"command" json:"command" jsonschema:"required,description=Executable path (absolute recommended)"`
+	Description string             `toml:"description" json:"description,omitempty" jsonschema:"description=Human-readable description"`
+	Args        []string           `toml:"args" json:"args,omitempty" jsonschema:"description=Command-line arguments"`
+	WorkingDir  string             `toml:"working_dir" json:"working_dir,omitempty" jsonschema:"description=Working directory for the process"`
+	Enabled     bool               `toml:"enabled" json:"enabled,omitempty" jsonschema:"description=Whether to auto-start on daemon launch"`
+	Environment map[string]string  `toml:"environment" json:"environment,omitempty" jsonschema:"description=Environment variables"`
+	EnvFile     string             `toml:"env_file" json:"env_file,omitempty" jsonschema:"description=Path to .env file to load"`
+	Restart     RestartConfig      `toml:"restart" json:"restart,omitempty"`
 	HealthCheck *HealthCheckConfig `toml:"health_check" json:"health_check,omitempty"`
-	Stop        StopConfig        `toml:"stop" json:"stop"`
-	Log         LogConfig         `toml:"log" json:"log"`
+	Stop        StopConfig         `toml:"stop" json:"stop,omitempty"`
+	Log         LogConfig          `toml:"log" json:"log,omitempty"`
 }
 
 // RestartConfig defines the restart policy for a service.
 type RestartConfig struct {
-	Policy         string   `toml:"policy" json:"policy" jsonschema:"enum=no,enum=always,enum=on-failure,enum=unless-stopped,description=Restart policy"`
-	ExitCodes      []int    `toml:"exit_codes" json:"exit_codes" jsonschema:"description=Exit codes treated as failure (empty = non-zero)"`
-	MaxRetries     int      `toml:"max_retries" json:"max_retries" jsonschema:"description=Max retries (0 = unlimited)"`
-	RestartWindow  Duration `toml:"restart_window" json:"restart_window" jsonschema:"description=Time window for counting retries"`
-	Backoff        string   `toml:"backoff" json:"backoff" jsonschema:"enum=fixed,enum=exponential,description=Backoff strategy"`
-	BackoffInitial Duration `toml:"backoff_initial" json:"backoff_initial" jsonschema:"description=Initial backoff duration"`
-	BackoffMax     Duration `toml:"backoff_max" json:"backoff_max" jsonschema:"description=Maximum backoff duration"`
-	BackoffFactor  float64  `toml:"backoff_factor" json:"backoff_factor" jsonschema:"description=Backoff multiplier for exponential strategy"`
+	Policy         string   `toml:"policy" json:"policy,omitempty" jsonschema:"enum=no,enum=always,enum=on-failure,enum=unless-stopped,description=Restart policy"`
+	ExitCodes      []int    `toml:"exit_codes" json:"exit_codes,omitempty" jsonschema:"description=Exit codes treated as failure (empty = non-zero)"`
+	MaxRetries     int      `toml:"max_retries" json:"max_retries,omitempty" jsonschema:"description=Max retries (0 = unlimited)"`
+	RestartWindow  Duration `toml:"restart_window" json:"restart_window,omitempty" jsonschema:"description=Time window for counting retries"`
+	Backoff        string   `toml:"backoff" json:"backoff,omitempty" jsonschema:"enum=fixed,enum=exponential,description=Backoff strategy"`
+	BackoffInitial Duration `toml:"backoff_initial" json:"backoff_initial,omitempty" jsonschema:"description=Initial backoff duration"`
+	BackoffMax     Duration `toml:"backoff_max" json:"backoff_max,omitempty" jsonschema:"description=Maximum backoff duration"`
+	BackoffFactor  float64  `toml:"backoff_factor" json:"backoff_factor,omitempty" jsonschema:"description=Backoff multiplier for exponential strategy"`
 }
 
 // HealthCheckConfig defines how to check if a service is healthy.
@@ -69,24 +69,24 @@ type HealthCheckConfig struct {
 	TCPPort          int      `toml:"tcp_port" json:"tcp_port,omitempty"`
 	ExecCommand      string   `toml:"exec_command" json:"exec_command,omitempty"`
 	ExecTimeout      Duration `toml:"exec_timeout" json:"exec_timeout,omitempty"`
-	Interval         Duration `toml:"interval" json:"interval"`
-	Timeout          Duration `toml:"timeout" json:"timeout"`
-	Retries          int      `toml:"retries" json:"retries" jsonschema:"description=Consecutive failures before marking unhealthy"`
-	OnUnhealthy      string   `toml:"on_unhealthy" json:"on_unhealthy" jsonschema:"enum=restart,enum=none"`
+	Interval         Duration `toml:"interval" json:"interval,omitempty"`
+	Timeout          Duration `toml:"timeout" json:"timeout,omitempty"`
+	Retries          int      `toml:"retries" json:"retries,omitempty" jsonschema:"description=Consecutive failures before marking unhealthy"`
+	OnUnhealthy      string   `toml:"on_unhealthy" json:"on_unhealthy,omitempty" jsonschema:"enum=restart,enum=none"`
 }
 
 // StopConfig defines how a service should be stopped.
 type StopConfig struct {
-	Signal  string   `toml:"signal" json:"signal" jsonschema:"enum=SIGTERM,enum=SIGINT,enum=SIGKILL,description=Signal to send on stop"`
-	Timeout Duration `toml:"timeout" json:"timeout" jsonschema:"description=Grace period before SIGKILL"`
+	Signal  string   `toml:"signal" json:"signal,omitempty" jsonschema:"enum=SIGTERM,enum=SIGINT,enum=SIGKILL,description=Signal to send on stop"`
+	Timeout Duration `toml:"timeout" json:"timeout,omitempty" jsonschema:"description=Grace period before SIGKILL"`
 }
 
 // LogConfig defines log output settings.
 type LogConfig struct {
-	StdoutPath string `toml:"stdout_path" json:"stdout_path" jsonschema:"description=Custom stdout log path"`
-	StderrPath string `toml:"stderr_path" json:"stderr_path" jsonschema:"description=Custom stderr log path"`
-	MaxSize    string `toml:"max_size" json:"max_size" jsonschema:"description=Max log file size before rotation (e.g. 100MB)"`
-	MaxFiles   int    `toml:"max_files" json:"max_files" jsonschema:"description=Number of rotated log files to keep"`
+	StdoutPath string `toml:"stdout_path" json:"stdout_path,omitempty" jsonschema:"description=Custom stdout log path"`
+	StderrPath string `toml:"stderr_path" json:"stderr_path,omitempty" jsonschema:"description=Custom stderr log path"`
+	MaxSize    string `toml:"max_size" json:"max_size,omitempty" jsonschema:"description=Max log file size before rotation (e.g. 100MB)"`
+	MaxFiles   int    `toml:"max_files" json:"max_files,omitempty" jsonschema:"description=Number of rotated log files to keep"`
 }
 
 // DefaultServiceConfig returns a config pre-filled with sensible defaults.
