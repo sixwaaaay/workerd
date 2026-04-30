@@ -308,32 +308,32 @@ func (m *Manager) StopAll() {
 // Reload reloads configs: adds new, removes deleted, updates existing.
 func (m *Manager) Reload() error {
 	serviceDir := filepath.Join(m.configDir, "services")
-	cfgs, err := config.LoadServices(serviceDir)
+	cfgs, loadErr := config.LoadServices(serviceDir)
 
 	m.mu.Lock()
-	// Build set of config names
+
+	// Build set of config names from successfully loaded configs
+	// Always populate cfgNames from cfgs, even if loadErr != nil —
+	// partial results are better than deleting everything.
 	cfgNames := make(map[string]*config.ServiceConfig)
-	if err == nil {
-		for _, cfg := range cfgs {
-			cfgNames[cfg.Name] = cfg
-		}
+	for _, cfg := range cfgs {
+		cfgNames[cfg.Name] = cfg
 	}
 
-	// Remove services whose configs were deleted
+	// Remove services whose config files were deleted from disk
 	for name := range m.services {
 		if _, exists := cfgNames[name]; !exists {
-			svc := m.services[name]
 			m.mu.Unlock()
 			m.stopService(name)
 			m.mu.Lock()
 			delete(m.services, name)
-			_ = svc
 		}
 	}
 
-	// Add new services and update existing
+	// Add new services and update existing configs
 	for name, cfg := range cfgNames {
 		if existing, ok := m.services[name]; ok {
+			// Update config in place for existing service
 			existing.mu.Lock()
 			existing.Config = cfg
 			existing.mu.Unlock()
@@ -367,7 +367,7 @@ func (m *Manager) Reload() error {
 		}
 	}
 
-	return err
+	return loadErr
 }
 
 // ---- internal methods ----

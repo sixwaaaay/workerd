@@ -74,6 +74,14 @@ func daemonCmd() *cobra.Command {
 		Use:   "daemon",
 		Short: "Start the workerd daemon",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Check if daemon is already running
+			if pid, err := readPIDFile(filepath.Join(configDir, "workerd.pid")); err == nil && pid > 0 {
+				if proc, err := os.FindProcess(pid); err == nil {
+					if err := proc.Signal(syscall.Signal(0)); err == nil {
+						return fmt.Errorf("daemon is already running (PID %d)", pid)
+					}
+				}
+			}
 			if !foreground {
 				return daemonize()
 			}
@@ -82,6 +90,19 @@ func daemonCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVarP(&foreground, "foreground", "f", false, "Run in foreground")
 	return cmd
+}
+
+// readPIDFile reads a PID from a file.
+func readPIDFile(path string) (int, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0, err
+	}
+	var pid int
+	if _, err := fmt.Sscanf(string(data), "%d", &pid); err != nil {
+		return 0, err
+	}
+	return pid, nil
 }
 
 func daemonize() error {
@@ -157,35 +178,51 @@ func initCmd() *cobra.Command {
 
 func addCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "add <config-file>",
-		Short: "Add a service from a config file (copied to config directory)",
-		Args:  cobra.ExactArgs(1),
+		Use:   "add <name|config-file>",
+		Short: "Load a service into the daemon",
+		Long: `Load a service configuration into the running daemon.
+
+If given a service name (e.g. "myapp"), looks for <name>.toml in the
+services directory. Use "init" first to create a template, edit it,
+then "add" to load it.
+
+If given a path to a .toml file, copies it into the services directory
+and loads it immediately.`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Resolve the source path
-			srcPath, err := filepath.Abs(args[0])
-			if err != nil {
-				return fmt.Errorf("resolving path: %w", err)
-			}
-
-			// Load config to get the service name
-			cfg, err := config.LoadService(srcPath)
-			if err != nil {
-				return fmt.Errorf("loading config: %w", err)
-			}
-
-			// Ensure services dir exists
 			serviceDir := filepath.Join(configDir, "services")
 			os.MkdirAll(serviceDir, 0755)
 
-			// Copy to services directory (unless already there)
-			dstPath := filepath.Join(serviceDir, cfg.Name+".toml")
-			if srcPath != dstPath {
-				data, err := os.ReadFile(srcPath)
+			arg := args[0]
+			var dstPath string
+
+			// Determine if arg is a file path or a service name
+			if strings.Contains(arg, string(filepath.Separator)) || strings.HasSuffix(arg, ".toml") {
+				// It's a file path: copy to services dir and load
+				srcPath, err := filepath.Abs(arg)
 				if err != nil {
-					return fmt.Errorf("reading config: %w", err)
+					return fmt.Errorf("resolving path: %w", err)
 				}
-				if err := os.WriteFile(dstPath, data, 0644); err != nil {
-					return fmt.Errorf("copying config: %w", err)
+				// Load config to get the service name
+				cfg, err := config.LoadService(srcPath)
+				if err != nil {
+					return fmt.Errorf("loading config: %w", err)
+				}
+				dstPath = filepath.Join(serviceDir, cfg.Name+".toml")
+				if srcPath != dstPath {
+					data, err := os.ReadFile(srcPath)
+					if err != nil {
+						return fmt.Errorf("reading config: %w", err)
+					}
+					if err := os.WriteFile(dstPath, data, 0644); err != nil {
+						return fmt.Errorf("copying config: %w", err)
+					}
+				}
+			} else {
+				// It's a service name: load from services dir
+				dstPath = filepath.Join(serviceDir, arg+".toml")
+				if _, err := os.Stat(dstPath); os.IsNotExist(err) {
+					return fmt.Errorf("service %q not found — use 'workerd init %s' first to create a template", arg, arg)
 				}
 			}
 
@@ -193,7 +230,7 @@ func addCmd() *cobra.Command {
 			if err := c.Add(dstPath); err != nil {
 				return err
 			}
-			fmt.Printf("Service %q added from %s\n", cfg.Name, dstPath)
+			fmt.Printf("Service loaded from %s\n", dstPath)
 			return nil
 		},
 	}
