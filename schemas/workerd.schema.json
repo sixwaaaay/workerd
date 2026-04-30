@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/user/workerd/internal/config/service-config",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Unique service name"
+    },
+    "command": {
+      "type": "string",
+      "description": "Executable path (absolute recommended)"
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description"
+    },
+    "args": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array",
+      "description": "Command-line arguments"
+    },
+    "working_dir": {
+      "type": "string",
+      "description": "Working directory for the process"
+    },
+    "enabled": {
+      "type": "boolean",
+      "description": "Whether to auto-start on daemon launch"
+    },
+    "environment": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object",
+      "description": "Environment variables"
+    },
+    "env_file": {
+      "type": "string",
+      "description": "Path to .env file to load"
+    },
+    "restart": {
+      "properties": {
+        "policy": {
+          "type": "string",
+          "enum": [
+            "no",
+            "always",
+            "on-failure",
+            "unless-stopped"
+          ],
+          "description": "Restart policy"
+        },
+        "exit_codes": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array",
+          "description": "Exit codes treated as failure (empty = non-zero)"
+        },
+        "max_retries": {
+          "type": "integer",
+          "description": "Max retries (0 = unlimited)"
+        },
+        "restart_window": {
+          "type": "integer",
+          "description": "Time window for counting retries"
+        },
+        "backoff": {
+          "type": "string",
+          "enum": [
+            "fixed",
+            "exponential"
+          ],
+          "description": "Backoff strategy"
+        },
+        "backoff_initial": {
+          "type": "integer",
+          "description": "Initial backoff duration"
+        },
+        "backoff_max": {
+          "type": "integer",
+          "description": "Maximum backoff duration"
+        },
+        "backoff_factor": {
+          "type": "number",
+          "description": "Backoff multiplier for exponential strategy"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "policy",
+        "exit_codes",
+        "max_retries",
+        "restart_window",
+        "backoff",
+        "backoff_initial",
+        "backoff_max",
+        "backoff_factor"
+      ]
+    },
+    "health_check": {
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "http",
+            "tcp",
+            "exec"
+          ]
+        },
+        "http_url": {
+          "type": "string"
+        },
+        "http_method": {
+          "type": "string"
+        },
+        "http_expect_status": {
+          "type": "integer"
+        },
+        "tcp_host": {
+          "type": "string"
+        },
+        "tcp_port": {
+          "type": "integer"
+        },
+        "exec_command": {
+          "type": "string"
+        },
+        "exec_timeout": {
+          "type": "integer"
+        },
+        "interval": {
+          "type": "integer"
+        },
+        "timeout": {
+          "type": "integer"
+        },
+        "retries": {
+          "type": "integer",
+          "description": "Consecutive failures before marking unhealthy"
+        },
+        "on_unhealthy": {
+          "type": "string",
+          "enum": [
+            "restart",
+            "none"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "type",
+        "interval",
+        "timeout",
+        "retries",
+        "on_unhealthy"
+      ]
+    },
+    "stop": {
+      "properties": {
+        "signal": {
+          "type": "string",
+          "enum": [
+            "SIGTERM",
+            "SIGINT",
+            "SIGKILL"
+          ],
+          "description": "Signal to send on stop"
+        },
+        "timeout": {
+          "type": "integer",
+          "description": "Grace period before SIGKILL"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "signal",
+        "timeout"
+      ]
+    },
+    "log": {
+      "properties": {
+        "stdout_path": {
+          "type": "string",
+          "description": "Custom stdout log path"
+        },
+        "stderr_path": {
+          "type": "string",
+          "description": "Custom stderr log path"
+        },
+        "max_size": {
+          "type": "string",
+          "description": "Max log file size before rotation (e.g. 100MB)"
+        },
+        "max_files": {
+          "type": "integer",
+          "description": "Number of rotated log files to keep"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "stdout_path",
+        "stderr_path",
+        "max_size",
+        "max_files"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "name",
+    "command",
+    "description",
+    "args",
+    "working_dir",
+    "enabled",
+    "environment",
+    "env_file",
+    "restart",
+    "stop",
+    "log"
+  ],
+  "title": "workerd Service Configuration",
+  "description": "Schema for workerd service TOML configuration files."
+}
