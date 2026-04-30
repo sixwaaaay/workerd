@@ -108,8 +108,8 @@ func DefaultServiceConfig(name string) *ServiceConfig {
 			Timeout: Duration(10 * time.Second),
 		},
 		Log: LogConfig{
-			MaxSize:  "100MB",
-			MaxFiles: 5,
+			MaxSize:  "",
+			MaxFiles: 0,
 		},
 	}
 }

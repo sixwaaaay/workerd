@@ -31,27 +31,34 @@ type LogLine struct {
 }
 
 // NewCollector creates a new log collector.
-// maxSize is a string like "100MB", maxFiles is the number of rotated files to keep.
+// maxSize is a string like "100MB"; empty or "0" means no rotation.
+// maxFiles is the number of rotated files to keep; 0 means unlimited.
 func NewCollector(path string, maxSize string, maxFiles int) (*Collector, error) {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, fmt.Errorf("creating log directory %s: %w", dir, err)
 	}
 
-	// Parse maxSize
-	var maxBytes int64 = 100 * 1024 * 1024 // default 100MB
-	if maxSize != "" {
+	// Parse maxSize; empty or "0" means no size-based rotation
+	var maxBytes int64 = 0
+	if maxSize != "" && maxSize != "0" {
 		maxBytes = parseSize(maxSize)
 	}
+
+	// If no rotation specified, use a very large value to effectively disable it
+	maxMB := int(maxBytes / (1024 * 1024))
+	if maxMB <= 0 {
+		maxMB = 1 << 20 // ~1TB, effectively unlimited
+	}
 	if maxFiles <= 0 {
-		maxFiles = 5
+		maxFiles = 0 // lumberjack: 0 means keep all backups
 	}
 
 	lj := &lumberjack.Logger{
 		Filename:   path,
-		MaxSize:    int(maxBytes / (1024 * 1024)),
+		MaxSize:    maxMB,
 		MaxBackups: maxFiles,
-		MaxAge:     0, // don't use age-based cleanup
+		MaxAge:     0,
 		Compress:   false,
 		LocalTime:  true,
 	}
@@ -79,6 +86,7 @@ func (c *Collector) Collect(r io.Reader, stream string) {
 		c.mu.Lock()
 		if !c.closed {
 			fmt.Fprintf(c.buf, "[%s] %s\n", entry.Timestamp.Format("2006-01-02 15:04:05.000"), line)
+			c.buf.Flush() // Flush each line so it's immediately written to disk
 
 			// Notify subscribers
 			for _, ch := range c.subscribers {

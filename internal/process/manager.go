@@ -144,6 +144,7 @@ func (m *Manager) AddService(configPath string) error {
 }
 
 // RemoveService removes a service. Stops it first if running.
+// Also deletes the config file from the services directory.
 func (m *Manager) RemoveService(name string) error {
 	m.mu.Lock()
 	_, ok := m.services[name]
@@ -159,6 +160,11 @@ func (m *Manager) RemoveService(name string) error {
 	m.mu.Lock()
 	delete(m.services, name)
 	m.mu.Unlock()
+
+	// Delete the config file so reload doesn't re-add it
+	configPath := filepath.Join(m.configDir, "services", name+".toml")
+	os.Remove(configPath)
+
 	return nil
 }
 

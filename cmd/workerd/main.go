@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"text/tabwriter"
@@ -157,15 +158,42 @@ func initCmd() *cobra.Command {
 func addCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "add <config-file>",
-		Short: "Add a service from a config file",
+		Short: "Add a service from a config file (copied to config directory)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Resolve the source path
+			srcPath, err := filepath.Abs(args[0])
+			if err != nil {
+				return fmt.Errorf("resolving path: %w", err)
+			}
+
+			// Load config to get the service name
+			cfg, err := config.LoadService(srcPath)
+			if err != nil {
+				return fmt.Errorf("loading config: %w", err)
+			}
+
+			// Ensure services dir exists
+			serviceDir := filepath.Join(configDir, "services")
+			os.MkdirAll(serviceDir, 0755)
+
+			// Copy to services directory (unless already there)
+			dstPath := filepath.Join(serviceDir, cfg.Name+".toml")
+			if srcPath != dstPath {
+				data, err := os.ReadFile(srcPath)
+				if err != nil {
+					return fmt.Errorf("reading config: %w", err)
+				}
+				if err := os.WriteFile(dstPath, data, 0644); err != nil {
+					return fmt.Errorf("copying config: %w", err)
+				}
+			}
+
 			c := client.NewClient(socketPath)
-			configPath, _ := filepath.Abs(args[0])
-			if err := c.Add(configPath); err != nil {
+			if err := c.Add(dstPath); err != nil {
 				return err
 			}
-			fmt.Printf("Service added from %s\n", configPath)
+			fmt.Printf("Service %q added from %s\n", cfg.Name, dstPath)
 			return nil
 		},
 	}
@@ -173,9 +201,10 @@ func addCmd() *cobra.Command {
 
 func removeCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "remove <name>",
-		Short: "Remove a service",
-		Args:  cobra.ExactArgs(1),
+		Use:               "remove <name>",
+		Short:             "Remove a service",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: serviceNameCompletion,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.NewClient(socketPath)
 			if err := c.Remove(args[0]); err != nil {
@@ -189,9 +218,10 @@ func removeCmd() *cobra.Command {
 
 func startCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "start <name>",
-		Short: "Start a service",
-		Args:  cobra.ExactArgs(1),
+		Use:               "start <name>",
+		Short:             "Start a service",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: serviceNameCompletion,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.NewClient(socketPath)
 			if err := c.Start(args[0]); err != nil {
@@ -205,9 +235,10 @@ func startCmd() *cobra.Command {
 
 func stopCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "stop <name>",
-		Short: "Stop a service",
-		Args:  cobra.ExactArgs(1),
+		Use:               "stop <name>",
+		Short:             "Stop a service",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: serviceNameCompletion,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.NewClient(socketPath)
 			if err := c.Stop(args[0]); err != nil {
@@ -221,9 +252,10 @@ func stopCmd() *cobra.Command {
 
 func restartCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "restart <name>",
-		Short: "Restart a service",
-		Args:  cobra.ExactArgs(1),
+		Use:               "restart <name>",
+		Short:             "Restart a service",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: serviceNameCompletion,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.NewClient(socketPath)
 			if err := c.Restart(args[0]); err != nil {
@@ -237,8 +269,9 @@ func restartCmd() *cobra.Command {
 
 func statusCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "status [name]",
-		Short: "Show service status",
+		Use:               "status [name]",
+		Short:             "Show service status",
+		ValidArgsFunction: serviceNameCompletion,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.NewClient(socketPath)
 			name := ""
@@ -285,31 +318,49 @@ func logsCmd() *cobra.Command {
 	var (
 		follow bool
 		lines  int
-		stderr bool
 	)
 
 	cmd := &cobra.Command{
-		Use:   "logs <name>",
-		Short: "View service logs",
-		Args:  cobra.ExactArgs(1),
+		Use:               "logs <name>",
+		Short:             "View service logs (shows both stdout and stderr by default)",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: serviceNameCompletion,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.NewClient(socketPath)
-			stream := "stdout"
-			if stderr {
-				stream = "stderr"
-			}
 
 			if follow {
-				return c.LogsFollow(args[0], stream, lines, func(line logger.LogLine) {
-					fmt.Printf("[%s] %s\n", line.Timestamp.Format("15:04:05"), line.Line)
+				// Subscribe to both streams
+				done := make(chan struct{})
+				go func() {
+					c.LogsFollow(args[0], "stdout", lines, func(line logger.LogLine) {
+						fmt.Printf("[%s] %s\n", line.Timestamp.Format("15:04:05"), line.Line)
+					})
+					close(done)
+				}()
+				c.LogsFollow(args[0], "stderr", lines, func(line logger.LogLine) {
+					fmt.Printf("[stderr] [%s] %s\n", line.Timestamp.Format("15:04:05"), line.Line)
 				})
+				<-done
+				return nil
 			}
 
-			logLines, err := c.Logs(args[0], stream, lines)
-			if err != nil {
-				return err
+			// Non-follow: fetch both, merge by timestamp, display raw lines
+			stdoutLines, _ := c.Logs(args[0], "stdout", lines)
+			stderrLines, _ := c.Logs(args[0], "stderr", lines)
+			if stdoutLines == nil && stderrLines == nil {
+				return fmt.Errorf("no log data for %q", args[0])
 			}
-			for _, line := range logLines {
+
+			allLines := append(stdoutLines, stderrLines...)
+			sort.Slice(allLines, func(i, j int) bool {
+				return allLines[i].Timestamp.Before(allLines[j].Timestamp)
+			})
+
+			for _, line := range allLines {
+				// Raw line already has timestamp prefix from the collector
+				if line.Stream == "stderr" {
+					fmt.Print("[stderr] ")
+				}
 				fmt.Println(line.Line)
 			}
 			return nil
@@ -318,7 +369,6 @@ func logsCmd() *cobra.Command {
 
 	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "Follow log output")
 	cmd.Flags().IntVarP(&lines, "lines", "n", 50, "Number of lines to show")
-	cmd.Flags().BoolVar(&stderr, "stderr", false, "Show stderr instead of stdout")
 	return cmd
 }
 
@@ -447,7 +497,21 @@ func generateTOMLTemplate(cfg *config.ServiceConfig) string {
 	sb.WriteString("# timeout = \"10s\"\n")
 	sb.WriteString("\n")
 	sb.WriteString("# [log]\n")
-	sb.WriteString("# max_size = \"100MB\"\n")
-	sb.WriteString("# max_files = 5\n")
+	sb.WriteString("# max_size = \"0\"  # 0 or empty = no rotation\n")
+	sb.WriteString("# max_files = 0    # 0 = unlimited\n")
 	return sb.String()
+}
+
+// serviceNameCompletion provides shell completion for service names.
+func serviceNameCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	c := client.NewClient(socketPath)
+	services, err := c.List()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	var names []string
+	for _, s := range services {
+		names = append(names, s.Name)
+	}
+	return names, cobra.ShellCompDirectiveNoFileComp
 }
